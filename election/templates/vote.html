@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Vote{% endblock %}
+{% block content %}
+<style>
+    .card {
+        display: flex;
+        flex-direction: column;
+    }
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .card-img-top {
+        object-fit: cover;
+        height: 300px; /* Adjust the height as necessary */
+    }
+    .h1tag {
+        font-weight: lighter;
+        margin-bottom: 30px;
+    }
+    .catfont {
+        font-weight: lighter;
+    }
+    .error-message {
+        color: red;
+        font-weight: bold;
+        margin-top: 10px;
+    }
+</style>
+
+<div class="container mt-5">
+    <h2 class="text-center h1tag">You can vote only once in each position</h2>
+    
+    {% if error_message %}
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="error-message">{{ error_message }}</div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% for category in categories %}
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="category" value="{{ category.id }}">
+        <h2 class="text-center catfont">CATEGORY: {{ category.category_name }} ELECTION</h2> <!-- Display category name dynamically -->
+        <div class="row justify-content-center">
+            {% for candidate in category.candidate_set.all %}
+            <div class="col-md-4 mb-4 d-flex align-items-stretch">
+                <div class="card">
+                    <img src="{{ candidate.image.url }}" class="card-img-top" alt="Candidate Image">
+                    <div class="card-body text-center d-flex flex-column">
+                        <h5 class="card-title"><b>{{ candidate.first_name|upper }} {{ candidate.middle_name|upper }} {{ candidate.last_name|upper }}</b></h5>
+                        <p class="card-text">COURSE: <b>{{ candidate.course|upper }}</b></p>
+                        <p class="card-text">LEVEL: <b>{{ candidate.level_of_study|upper }} {{ candidate.year_of_study|upper }} st year</b></p>
+                        <p class="card-text">POSITION: <b>{{ candidate.position|upper }}</b></p>
+                        <div class="mt-auto">
+                            <input type="radio" id="candidate{{ candidate.id }}" name="candidate" value="{{ candidate.id }}" class="form-check-input">
+                            <label for="candidate{{ candidate.id }}" class="form-check-label">Select</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <button type="submit" class="btn btn-primary btn-block mb-5">Submit Vote</button>
+            </div>
+        </div>
+    </form>
+    {% endfor %}
+</div>
+{% endblock %}

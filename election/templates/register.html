@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="container">
+        <h2 class="my-4">Register</h2>
+        <form method="post" class="needs-validation" novalidate>
+            {% csrf_token %}
+            <div class="form-group">
+                {{ form.student_id.label_tag }}
+                {{ form.student_id }}
+                {% if form.student_id.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.student_id.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.email.label_tag }}
+                {{ form.email }}
+                {% if form.email.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.email.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.password1.label_tag }}
+                {{ form.password1 }}
+                {% if form.password1.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.password1.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group">
+                {{ form.password2.label_tag }}
+                {{ form.password2 }}
+                {% if form.password2.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.password2.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="form-group form-check">
+                {{ form.is_admin }}
+                <label class="form-check-label mr-4" for="{{ form.is_admin.id_for_label }}">Is Admin</label>
+            
+                {{ form.is_staff }}
+                <label class="form-check-label mr-4" for="{{ form.is_staff.id_for_label }}">Is Staff</label>
+            
+                {{ form.is_superuser }}
+                <label class="form-check-label mr-4" for="{{ form.is_superuser.id_for_label }}">Is Superuser</label>
+            </div>
+            <button type="submit" class="btn btn-primary">Register</button>
+            <p>Have an account? <a style="text-decoration: none;" href="{% url 'login' %}">Sign in here</a></p>
+        </form>
+    </div>
+
+    <!-- Optional: JavaScript to handle Bootstrap validation styles -->
+    <script>
+        (function() {
+            'use strict';
+            window.addEventListener('load', function() {
+                var forms = document.getElementsByClassName('needs-validation');
+                Array.prototype.filter.call(forms, function(form) {
+                    form.addEventListener('submit', function(event) {
+                        if (form.checkValidity() === false) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }
+                        form.classList.add('was-validated');
+                    }, false);
+                });
+            }, false);
+        })();
+    </script>
+{% endblock %}

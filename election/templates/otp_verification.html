@@ -1,0 +1,24 @@
+<!-- otp_verification.html -->
+{% extends 'base.html' %}
+{% block title %}OTP Verification{% endblock %}
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title text-center">Enter OTP Code</h2>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <input type="text" class="form-control" name="otp_code" placeholder="Enter OTP code">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Verify OTP</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <p><a href="{% url 'logout' %}">Logout</a></p>
+</div>
+{% endblock %}
