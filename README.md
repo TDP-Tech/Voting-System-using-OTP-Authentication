@@ -7,24 +7,23 @@ User Authentication:
 Registration and login using university ID and password.
 Two-factor authentication options:
 Fingerprint authentication (integrated with device fingerprint sensor).
-OTP authentication via SMS (using Twilio API for demonstration).
+OTP authentication via SMS/Email.
+
 Voting Process:
-
 Once authenticated, users can vote for candidates of their choice.
-Ensures each user can only vote once using unique identifiers tied to each voter.
-Admin Interface:
+Ensures each user can only vote once in each category using unique identifiers tied to each voter.
 
+Admin Interface:
 Secure admin panel to manage users and candidates.
 Provides oversight of voting activities and results.
+
 Technologies Used
 Backend:
-
 Django: Web framework for rapid development and security features.
-Django REST Framework: Used for building APIs if applicable.
+
 Frontend:
-
-HTML/CSS/JavaScript: Frontend technologies for interface development.
+HTML/CSS/JavaScript/Bootstrap: Frontend technologies for interface development.
 Bootstrap: Frontend framework for responsive design.
-Database:
 
-PostgreSQL/SQLite: Database systems used for storing user data, candidate information, and voting records.
+Database:
+SQLite3: Database systems used for storing user data, candidate information, and voting records.
