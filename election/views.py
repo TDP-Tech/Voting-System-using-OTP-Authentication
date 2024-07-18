@@ -18,7 +18,7 @@ def register_view(request):
         form = RegistrationForm(request.POST)
         if form.is_valid():
             student = form.save()
-            return redirect('login')  # Redirect to login page after successful registration
+            return redirect('login')
     else:
         form = RegistrationForm()
     return render(request, 'register.html', {'form': form})
@@ -115,36 +115,82 @@ def verify_credential(credential):
 
 from django.http import HttpResponseBadRequest
 
+from django.db.models import Count
+
+from django.db.models import Max
+
+from django.db.models import Count, Max
+from django.http import JsonResponse
+
+from django.db.models import Count, Max, Q
+
 @login_required
 def vote_view(request):
     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
-    
+
     if request.method == 'POST':
         selected_candidate_id = request.POST.get('candidate')
         category_id = request.POST.get('category')
-        
-        # Check if a candidate was selected
+
         if not selected_candidate_id:
-            return render(request, 'vote.html', {'categories': categories_with_candidates, 'error_message': 'Please select a candidate to vote.'})
-        
-        # Check if the user has already voted in this category
+            return render(request, 'vote.html', {'categories': categories_with_candidates, 'error_message': "You haven't selected any leader. Refresh the page and select a leader, then click the Submit Vote button."})
+
         if Vote.objects.filter(student=request.user, category_id=category_id).exists():
-            return render(request, 'already_voted.html')
+            return redirect('already_voted')
 
         try:
             candidate = Candidate.objects.get(id=selected_candidate_id)
             category = Category.objects.get(id=category_id)
-            
-            # Create a new Vote object for the selected candidate and category
+
             Vote.objects.create(student=request.user, candidate=candidate, category=category)
             return redirect('thank_you')
-        
+
         except Candidate.DoesNotExist:
             return HttpResponseBadRequest('Invalid candidate selection.')
         except Category.DoesNotExist:
             return HttpResponseBadRequest('Invalid category selection.')
 
+    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+    for category in categories_with_candidates:
+        candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
+        category.candidates_with_votes = candidates
+        category.user_has_voted = Vote.objects.filter(student=request.user, category=category).exists()
+
+        max_votes = candidates.first().vote_count if candidates else 0
+        leading_candidates = candidates.filter(vote_count=max_votes)
+
+        if leading_candidates.count() > 1:
+            category.leading_candidate_id = None
+            category.tied_candidates = [candidate.id for candidate in leading_candidates]
+        else:
+            category.leading_candidate_id = leading_candidates.first().id if leading_candidates else None
+            category.tied_candidates = []
+
     return render(request, 'vote.html', {'categories': categories_with_candidates})
+
+# API endpoint to fetch updated vote counts and leader information
+def get_vote_counts(request):
+    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+
+    data = []
+    for category in categories_with_candidates:
+        candidates = category.candidate_set.annotate(vote_count=Count('vote'))
+        category_data = {
+            'id': category.id,
+            'candidates': [{
+                'id': candidate.id,
+                'vote_count': candidate.vote_count,
+            } for candidate in candidates],
+            'leading_candidate_id': category.leading_candidate_id,
+            'tied_candidates': category.tied_candidates,
+        }
+        data.append(category_data)
+
+    return JsonResponse({'categories': data})
+
+
+
+
 
 
 
@@ -155,4 +201,7 @@ def vote_view(request):
 
 def thank_you_view(request):
     return render(request, 'thank_you.html')
+
+def already_voted(request):
+    return render(request, 'already_voted.html')
 
