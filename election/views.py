@@ -2,16 +2,18 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from .forms import LoginForm, VoteForm, RegistrationForm
-from election.models import Vote, Candidate, Category
 from django.contrib import messages
 from django.http import JsonResponse
-import json, base64
 from django.core.mail import send_mail
 from django.views.decorators.csrf import csrf_exempt
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
-from .utils import get_user_public_key
+from django.http import HttpResponseBadRequest, JsonResponse
+from django.db.models import Count, Max, Q
+# from .utils import get_user_public_key
+from election.models import Vote, Candidate, Category
+from .forms import LoginForm, VoteForm, RegistrationForm
+import json, base64
 
 def register_view(request):
     if request.method == 'POST':
@@ -33,10 +35,11 @@ def login_view(request):
             user = authenticate(request, student_id=student_id, password=password)
             if user is not None:
                 login(request, user)
-                otp = user.generate_otp()  # Assuming you have a method to generate OTP for the user
+                otp = user.generate_otp()
+                user_name = user.student_id
                 send_mail(
-                    'Your OTP Code',
-                    f'Your OTP code is {otp}',
+                    'OTP Code for Authenticating you in Poll Station',
+                    f'{user_name} your OTP code is {otp}, it will expire within 10 minutes',
                     'tanzaniadigitalprojectstech@gmail.com',
                     [user.email],
                     fail_silently=False,
@@ -57,8 +60,7 @@ def otp_verification_view(request):
     if request.method == 'POST':
         otp_entered = request.POST.get('otp_code')
         if request.user.is_authenticated and request.user.is_otp_valid(otp_entered):
-            # Assuming is_otp_valid is a method in your User model to validate OTP
-            return redirect('vote')  # Redirect to vote page upon successful OTP verification
+            return redirect('vote')
         else:
             messages.error(request, 'Invalid OTP or OTP has expired')
     return render(request, 'otp_verification.html')
@@ -66,67 +68,18 @@ def otp_verification_view(request):
 ############ END OF OTP VERIFICATION ###########
 
 ################ FINGERPRINT VERIFICATION ##############
-@csrf_exempt
-def fingerprint_auth_view(request):
-    if request.method == 'POST':
-        # Verify the fingerprint credential here
-        credential = json.loads(request.body)
-        # If verification is successful
-        if verify_credential(credential):
-            login(request, request.user)
-            return JsonResponse({'status': 'success'})
-        else:
-            return JsonResponse({'status': 'failure'}, status=400)
-
-
-def verify_credential(credential):
-    # Decode and verify the credential with your server-side logic
-    client_data = base64.urlsafe_b64decode(credential['response']['clientDataJSON'])
-    authenticator_data = base64.urlsafe_b64decode(credential['response']['authenticatorData'])
-    signature = base64.urlsafe_b64decode(credential['response']['signature'])
-    public_key = get_user_public_key(credential['id'])
-
-    verifier = ec.ECDSA(hashes.SHA256())
-    try:
-        verifier.update(client_data + authenticator_data)
-        public_key.verify(signature, verifier.finalize())
-        return True
-    except Exception as e:
-        print(f"Verification failed: {str(e)}")
-        return False
-
-
-
 ############ END OF FINGERPRINT VERIFICATION ###########
-# @login_required
-# def vote_view(request):
-#     if request.method == 'POST':
-#         form = VoteForm(request.POST)
-#         if form.is_valid():
-#             if not Vote.objects.filter(student=request.user).exists():
-#                 candidate = form.cleaned_data['candidate']
-#                 Vote.objects.create(student=request.user, candidate=candidate)
-#                 return redirect('thank_you')
-#             else:
-#                 return render(request, 'already_voted.html')
-#     else:
-#         form = VoteForm()
-#     return render(request, 'vote.html', {'form': form})
 
-from django.http import HttpResponseBadRequest
-
-from django.db.models import Count
-
-from django.db.models import Max
-
-from django.db.models import Count, Max
-from django.http import JsonResponse
-
-from django.db.models import Count, Max, Q
+# election/views.py
+from django.utils import timezone
+from pytz import timezone as pytz_timezone
 
 @login_required
 def vote_view(request):
+    tanzania_tz = pytz_timezone('Africa/Dar_es_Salaam')
     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+
+    current_time = timezone.now().astimezone(tanzania_tz)
 
     if request.method == 'POST':
         selected_candidate_id = request.POST.get('candidate')
@@ -150,8 +103,17 @@ def vote_view(request):
         except Category.DoesNotExist:
             return HttpResponseBadRequest('Invalid category selection.')
 
-    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
     for category in categories_with_candidates:
+        if category.voting_start_time and current_time < category.voting_start_time:
+            category.voting_status = 'Not Started'
+            category.remaining_time = category.voting_start_time - current_time
+        elif category.voting_end_time and current_time > category.voting_end_time:
+            category.voting_status = 'Ended'
+            category.remaining_time = 0
+        else:
+            category.voting_status = 'Ongoing'
+            category.remaining_time = category.voting_end_time - current_time if category.voting_end_time else 0
+
         candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
         category.candidates_with_votes = candidates
         category.user_has_voted = Vote.objects.filter(student=request.user, category=category).exists()
@@ -167,6 +129,51 @@ def vote_view(request):
             category.tied_candidates = []
 
     return render(request, 'vote.html', {'categories': categories_with_candidates})
+
+
+# @login_required
+# def vote_view(request):
+#     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+
+#     if request.method == 'POST':
+#         selected_candidate_id = request.POST.get('candidate')
+#         category_id = request.POST.get('category')
+
+#         if not selected_candidate_id:
+#             return render(request, 'vote.html', {'categories': categories_with_candidates, 'error_message': "You haven't selected any leader. Refresh the page and select a leader, then click the Submit Vote button."})
+
+#         if Vote.objects.filter(student=request.user, category_id=category_id).exists():
+#             return redirect('already_voted')
+
+#         try:
+#             candidate = Candidate.objects.get(id=selected_candidate_id)
+#             category = Category.objects.get(id=category_id)
+
+#             Vote.objects.create(student=request.user, candidate=candidate, category=category)
+#             return redirect('thank_you')
+
+#         except Candidate.DoesNotExist:
+#             return HttpResponseBadRequest('Invalid candidate selection.')
+#         except Category.DoesNotExist:
+#             return HttpResponseBadRequest('Invalid category selection.')
+
+#     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+#     for category in categories_with_candidates:
+#         candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
+#         category.candidates_with_votes = candidates
+#         category.user_has_voted = Vote.objects.filter(student=request.user, category=category).exists()
+
+#         max_votes = candidates.first().vote_count if candidates else 0
+#         leading_candidates = candidates.filter(vote_count=max_votes)
+
+#         if leading_candidates.count() > 1:
+#             category.leading_candidate_id = None
+#             category.tied_candidates = [candidate.id for candidate in leading_candidates]
+#         else:
+#             category.leading_candidate_id = leading_candidates.first().id if leading_candidates else None
+#             category.tied_candidates = []
+
+#     return render(request, 'vote.html', {'categories': categories_with_candidates})
 
 # API endpoint to fetch updated vote counts and leader information
 def get_vote_counts(request):
@@ -188,20 +195,43 @@ def get_vote_counts(request):
 
     return JsonResponse({'categories': data})
 
-
-
-
-
-
-
-
-
-
-
-
 def thank_you_view(request):
     return render(request, 'thank_you.html')
 
 def already_voted(request):
     return render(request, 'already_voted.html')
+
+@login_required
+def election_results_view(request):
+    tanzania_tz = pytz_timezone('Africa/Dar_es_Salaam')
+    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+    current_time = timezone.now().astimezone(tanzania_tz)
+
+    for category in categories_with_candidates:
+        candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
+        category.candidates_with_votes = candidates
+
+    return render(request, 'electionresults.html', {'categories': categories_with_candidates})
+
+@login_required
+def winners_view(request):
+    tanzania_tz = pytz_timezone('Africa/Dar_es_Salaam')
+    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+    current_time = timezone.now().astimezone(tanzania_tz)
+
+    all_winners = []
+
+    for category in categories_with_candidates:
+        # Check if voting time is finished
+        if category.voting_end_time and current_time > category.voting_end_time:
+            candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
+            max_votes = candidates.first().vote_count if candidates else 0
+            winners = candidates.filter(vote_count=max_votes)
+            all_winners.extend(winners)  # Add winners to the list
+
+    # Remove duplicates while maintaining order
+    all_winners = list(dict.fromkeys(all_winners))
+
+    return render(request, 'winners.html', {'winners': all_winners})
+
 

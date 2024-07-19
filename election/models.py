@@ -61,10 +61,12 @@ class Student(AbstractBaseUser, PermissionsMixin):
     def is_otp_valid(self, otp):
         expiry_time = self.otp_created_at + datetime.timedelta(minutes=10)
         return self.otp == otp and timezone.now() < expiry_time
-    
-    
+
+
 class Category(models.Model):
     category_name = models.CharField(max_length=100, unique=True)
+    voting_start_time = models.DateTimeField(null=True, blank=True)
+    voting_end_time = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.category_name

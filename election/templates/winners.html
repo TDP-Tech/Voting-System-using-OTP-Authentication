@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Winners{% endblock %}
+{% block content %}
+<style>
+    /* General card styling */
+    .card {
+        display: flex;
+        flex-direction: column;
+        height: 100%; /* Ensure cards take up full height of their container */
+        border: 1px solid #ddd; /* Light border for cards */
+        border-radius: 10px; /* Rounded corners */
+        overflow: hidden; /* Hide overflow */
+        transition: transform 0.2s ease; /* Smooth transform transition */
+    }
+
+    .card:hover {
+        transform: scale(1.05); /* Zoom effect on hover */
+    }
+
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 15px; /* Padding inside the card body */
+    }
+
+    .card-img-top {
+        object-fit: cover;
+        height: 250px; /* Adjust the height as necessary */
+    }
+
+    .h1tag {
+        font-weight: lighter;
+        margin-bottom: 30px;
+        color: #333; /* Dark color for heading */
+        padding-top: 20px;
+    }
+
+    .winner-badge {
+        background-color: #28a745; /* Green badge background */
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    .badge-icon {
+        color: gold;
+        margin-left: 5px;
+    }
+
+    .container {
+        background-color: #f8f9fa; /* Light background for the container */
+        border-radius: 10px; /* Rounded corners for the container */
+        position: relative; /* Position relative for ribbon positioning */
+    }
+
+    /* Responsive styling */
+    @media (max-width: 768px) {
+        .card-img-top {
+            height: 200px; /* Adjust height for smaller screens */
+        }
+    }
+</style>
+
+<div class="container mt-5">
+    <h2 class="text-center h1tag" id="election-heading"></h2>
+
+    <div class="row">
+        {% for candidate in winners %}
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <img src="{{ candidate.image.url }}" class="card-img-top" alt="Candidate Image">
+                    <div class="card-body text-center">
+                        <h5 class="card-title"><b>{{ candidate.first_name|upper }} {{ candidate.middle_name|upper }} {{ candidate.last_name|upper }}</b></h5>
+                        <p class="card-text">COURSE: <b>{{ candidate.course|upper }}</b></p>
+                        <p class="card-text">POSITION: <b>{{ candidate.position|upper }}</b></p>
+                        <p class="card-text">
+                            <span class="winner-badge">
+                                Winner <i class="fas fa-trophy badge-icon"></i>
+                            </span> 
+                            Vote: <b>{{ candidate.vote_count }}</b>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+
+
+<script>
+    // Function to get the current and previous year
+    function getElectionYearRange() {
+        const currentYear = new Date().getFullYear();
+        const nextYear = currentYear + 1;
+        return `${currentYear}-${nextYear}`;
+    }
+
+    // Set the heading text
+    document.addEventListener('DOMContentLoaded', (event) => {
+        const headingElement = document.getElementById('election-heading');
+        headingElement.textContent = `${getElectionYearRange()} Election Winners`;
+
+        // Trigger the confetti effect
+        confetti({
+            particleCount: 500,
+            spread: 170,
+            origin: { y: 0.6 }
+        });
+        // Trigger the confetti effect
+        confetti({
+            particleCount: 1000,
+            spread: 70,
+            origin: { y: 0.8 }
+        });
+    });
+</script>
+
+{% endblock %}

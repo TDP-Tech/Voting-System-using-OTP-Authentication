@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Election Results{% endblock %}
+{% block content %}
+<style>
+    .card {
+        display: flex;
+        flex-direction: column;
+    }
+    .card-body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .card-img-top {
+        object-fit: cover;
+        height: 300px; /* Adjust the height as necessary */
+    }
+    .h1tag {
+        font-weight: lighter;
+        margin-bottom: 30px;
+    }
+    .result-card {
+        border: 2px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+        background-color: #f9f9f9;
+    }
+    .result-card h4 {
+        margin: 0;
+        font-weight: bold;
+    }
+    .result-card p {
+        margin: 5px 0;
+    }
+</style>
+
+<div class="container mt-5">
+    <h2 class="text-center h1tag">Election Results</h2>
+    
+    {% for category in categories %}
+        <div class="text-center mb-5">
+            <h3 class="h1tag">CATEGORY: {{ category.category_name }} ELECTION</h3>
+            <div class="row justify-content-center">
+                {% for candidate in category.candidates_with_votes %}
+                    <div class="col-md-4 mb-4 d-flex align-items-stretch">
+                        <div class="result-card">
+                            <img src="{{ candidate.image.url }}" class="card-img-top" alt="Candidate Image">
+                            <div class="card-body text-center">
+                                <h5>{{ candidate.first_name|upper }} {{ candidate.middle_name|upper }} {{ candidate.last_name|upper }}</h5>
+                                <p>COURSE: <b>{{ candidate.course|upper }}</b></p>
+                                <p>POSITION: <b>{{ candidate.position|upper }}</b></p>
+                                <p class="btn btn-secondary">Vote Count: <b>{{ candidate.vote_count }}</b></p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}
