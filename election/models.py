@@ -57,10 +57,15 @@ class Student(AbstractBaseUser, PermissionsMixin):
         self.otp_created_at = timezone.now()
         self.save()
         return self.otp
-
+    
     def is_otp_valid(self, otp):
-        expiry_time = self.otp_created_at + datetime.timedelta(minutes=10)
-        return self.otp == otp and timezone.now() < expiry_time
+        expiry_time = self.otp_created_at + datetime.timedelta(minutes=1)
+        if timezone.now() >= expiry_time:
+            return False, True  # OTP has expired
+        if self.otp != otp:
+            return False, False  # OTP is incorrect
+        return True, False  # OTP is valid
+
 
 
 class Category(models.Model):
@@ -89,5 +94,13 @@ class Vote(models.Model):
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    voting_timestamp = models.DateTimeField(auto_now_add=True)
     
+    def __str__(self):
+        return f'{self.student} {self.candidate}'
+
+class ElectionSettings(models.Model):
+    title = models.CharField(max_length=255, default="XYZ University Election")
+
+    def __str__(self):
+        return self.title

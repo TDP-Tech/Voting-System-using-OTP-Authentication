@@ -41,7 +41,7 @@
     {% for category in categories %}
         <div class="text-center mb-5">
             <h3 class="h1tag">CATEGORY: {{ category.category_name }} ELECTION</h3>
-            <div class="row justify-content-center">
+            <div class="row">
                 {% for candidate in category.candidates_with_votes %}
                     <div class="col-md-4 mb-4 d-flex align-items-stretch">
                         <div class="result-card">

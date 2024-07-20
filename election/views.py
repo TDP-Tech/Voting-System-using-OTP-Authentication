@@ -9,11 +9,13 @@ from django.views.decorators.csrf import csrf_exempt
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.db.models import Count, Max, Q
-# from .utils import get_user_public_key
-from election.models import Vote, Candidate, Category
+from django.db.models import Count, Max, Q, Sum
+from election.models import Vote, Candidate, Category, ElectionSettings
 from .forms import LoginForm, VoteForm, RegistrationForm
 import json, base64
+from django.utils import timezone
+from pytz import timezone as pytz_timezone
+from datetime import datetime
 
 def register_view(request):
     if request.method == 'POST':
@@ -55,38 +57,43 @@ def logout_view(request):
     logout(request)
     return redirect('login')
 
-################ OTP VERIFICATION ##############
 def otp_verification_view(request):
     if request.method == 'POST':
         otp_entered = request.POST.get('otp_code')
-        if request.user.is_authenticated and request.user.is_otp_valid(otp_entered):
-            return redirect('vote')
+        if request.user.is_authenticated:
+            otp_valid, otp_expired = request.user.is_otp_valid(otp_entered)
+            if otp_valid:
+                return redirect('vote')
+            elif otp_expired:
+                messages.error(request, 'OTP Code has expired')
+            else:
+                messages.error(request, 'Invalid OTP Code')
         else:
-            messages.error(request, 'Invalid OTP or OTP has expired')
+            messages.error(request, 'User is not authenticated')
     return render(request, 'otp_verification.html')
-
-############ END OF OTP VERIFICATION ###########
-
-################ FINGERPRINT VERIFICATION ##############
-############ END OF FINGERPRINT VERIFICATION ###########
-
-# election/views.py
-from django.utils import timezone
-from pytz import timezone as pytz_timezone
 
 @login_required
 def vote_view(request):
+    # Get the election title
+    election_settings = ElectionSettings.objects.first()
+    
     tanzania_tz = pytz_timezone('Africa/Dar_es_Salaam')
     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
 
     current_time = timezone.now().astimezone(tanzania_tz)
+    current_year = datetime.now().year
 
     if request.method == 'POST':
         selected_candidate_id = request.POST.get('candidate')
         category_id = request.POST.get('category')
 
         if not selected_candidate_id:
-            return render(request, 'vote.html', {'categories': categories_with_candidates, 'error_message': "You haven't selected any leader. Refresh the page and select a leader, then click the Submit Vote button."})
+            return render(request, 'vote.html', {
+                'categories': categories_with_candidates,
+                'election_title': election_settings.title if election_settings else "Default Title",
+                'current_year': current_year,
+                'error_message': "You haven't selected any leader. Refresh the page and select a leader, then click the Submit Vote button."
+            })
 
         if Vote.objects.filter(student=request.user, category_id=category_id).exists():
             return redirect('already_voted')
@@ -128,52 +135,11 @@ def vote_view(request):
             category.leading_candidate_id = leading_candidates.first().id if leading_candidates else None
             category.tied_candidates = []
 
-    return render(request, 'vote.html', {'categories': categories_with_candidates})
-
-
-# @login_required
-# def vote_view(request):
-#     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
-
-#     if request.method == 'POST':
-#         selected_candidate_id = request.POST.get('candidate')
-#         category_id = request.POST.get('category')
-
-#         if not selected_candidate_id:
-#             return render(request, 'vote.html', {'categories': categories_with_candidates, 'error_message': "You haven't selected any leader. Refresh the page and select a leader, then click the Submit Vote button."})
-
-#         if Vote.objects.filter(student=request.user, category_id=category_id).exists():
-#             return redirect('already_voted')
-
-#         try:
-#             candidate = Candidate.objects.get(id=selected_candidate_id)
-#             category = Category.objects.get(id=category_id)
-
-#             Vote.objects.create(student=request.user, candidate=candidate, category=category)
-#             return redirect('thank_you')
-
-#         except Candidate.DoesNotExist:
-#             return HttpResponseBadRequest('Invalid candidate selection.')
-#         except Category.DoesNotExist:
-#             return HttpResponseBadRequest('Invalid category selection.')
-
-#     categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
-#     for category in categories_with_candidates:
-#         candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
-#         category.candidates_with_votes = candidates
-#         category.user_has_voted = Vote.objects.filter(student=request.user, category=category).exists()
-
-#         max_votes = candidates.first().vote_count if candidates else 0
-#         leading_candidates = candidates.filter(vote_count=max_votes)
-
-#         if leading_candidates.count() > 1:
-#             category.leading_candidate_id = None
-#             category.tied_candidates = [candidate.id for candidate in leading_candidates]
-#         else:
-#             category.leading_candidate_id = leading_candidates.first().id if leading_candidates else None
-#             category.tied_candidates = []
-
-#     return render(request, 'vote.html', {'categories': categories_with_candidates})
+    return render(request, 'vote.html', {
+        'categories': categories_with_candidates,
+        'election_title': election_settings.title if election_settings else "XYZ University",
+        'current_year': current_year
+    })
 
 # API endpoint to fetch updated vote counts and leader information
 def get_vote_counts(request):
@@ -194,6 +160,35 @@ def get_vote_counts(request):
         data.append(category_data)
 
     return JsonResponse({'categories': data})
+
+
+def vote_analytics_view(request):
+    categories_with_candidates = Category.objects.filter(candidate__isnull=False).distinct()
+
+    analytics = []
+    for category in categories_with_candidates:
+        candidates = category.candidate_set.annotate(vote_count=Count('vote')).order_by('-vote_count')
+        total_votes = candidates.aggregate(total_votes=Sum('vote_count'))['total_votes']
+
+        category_analytics = {
+            'category_id': category.id,
+            'category_name': category.category_name,
+            'candidates': []
+        }
+
+        for candidate in candidates:
+            vote_count = candidate.vote_count
+            percentage = (vote_count / total_votes * 100) if total_votes > 0 else 0
+            category_analytics['candidates'].append({
+                'candidate_id': candidate.id,
+                'name': f"{candidate.first_name} {candidate.last_name}",
+                'vote_count': vote_count,
+                'percentage': percentage
+            })
+
+        analytics.append(category_analytics)
+
+    return render(request, 'vote_analytics.html', {'categories': analytics})
 
 def thank_you_view(request):
     return render(request, 'thank_you.html')

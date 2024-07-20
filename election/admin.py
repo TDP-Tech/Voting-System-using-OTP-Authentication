@@ -3,7 +3,7 @@
 from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import Student, Vote, Candidate,Category
+from .models import Student, Vote, Candidate,Category, ElectionSettings
 
 class StudentAdminCreationForm(forms.ModelForm):
     email = forms.EmailField(label='Email', required=True)
@@ -83,9 +83,9 @@ class StudentAdmin(UserAdmin):
 
 
 class VoteAdmin(admin.ModelAdmin):
-    list_display = ('student', 'candidate', 'timestamp')
+    list_display = ('student', 'candidate', 'voting_timestamp')
     search_fields = ('student__student_id', 'candidate')
-    list_filter = ('candidate', 'timestamp')
+    list_filter = ('candidate', 'voting_timestamp')
 admin.site.register(Vote, VoteAdmin)
 
 class CandidateAdmin(admin.ModelAdmin):
@@ -97,3 +97,7 @@ admin.site.register(Candidate, CandidateAdmin)
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['category_name']
+
+@admin.register(ElectionSettings)
+class ElectionSettingsAdmin(admin.ModelAdmin):
+    list_display = ['title']

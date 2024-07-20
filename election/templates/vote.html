@@ -2,55 +2,103 @@
 {% block title %}Vote{% endblock %}
 {% block content %}
 <style>
+    .container-fluid {
+        width: 100%;
+        padding-left: 0;
+        padding-right: 0;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .row {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
     .card {
         display: flex;
         flex-direction: column;
+        width: 100%; /* Ensure card takes up full width of its column */
     }
+
     .card-body {
         display: flex;
         flex-direction: column;
         justify-content: space-between;
     }
+
     .card-img-top {
         object-fit: cover;
         height: 300px; /* Adjust the height as necessary */
     }
+
     .h1tag {
         font-weight: lighter;
         margin-bottom: 30px;
     }
+
     .catfont {
         font-weight: lighter;
     }
+
     .error-message {
         color: red;
         font-weight: bold;
         margin-top: 10px;
     }
+
     .vote-count-btn {
         font-size: large;
     }
+
     .btn-green {
         background-color: green;
         color: white;
     }
+
     .btn-yellow {
         background-color: yellow;
         color: black;
     }
+
     .btn-red {
         background-color: red;
         color: white;
     }
+
     .timer {
         font-weight: bold;
         color: blue;
     }
+
+    .ended-card {
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+    .important-note {
+        color: red;
+        font-size: 1.5em; /* Adjust size as needed */
+        font-weight: bold;
+        animation: blink 1s infinite; /* Apply blinking animation */
+    }
+
+    @keyframes blink {
+        0% { opacity: 1; }
+        50% { opacity: 0; }
+        100% { opacity: 1; }
+    }
 </style>
 
 <div class="container mt-5">
-    <h2 class="text-center h1tag">You can vote only once in each position</h2>
-    
+    <h2 class="text-center h1tag">{{ election_title }} Election</h2>
+    <p class="text-center">
+        <span class="important-note">*</span> You can vote only once in each position
+    </p>
+
     {% if error_message %}
     <div class="row justify-content-center">
         <div class="col-md-6">
@@ -58,13 +106,15 @@
         </div>
     </div>
     {% endif %}
-    
+
     {% for category in categories %}
         <div class="text-center">
             {% if category.voting_status == 'Not Started' %}
                 <h3 class="timer" data-start-time="{{ category.voting_start_time|date:"c" }}">Voting starts at {{ category.voting_start_time|date:"Y-m-d H:i:s" }}</h3>
             {% elif category.voting_status == 'Ended' %}
-                <h3 class="timer" data-end-time="{{ category.voting_end_time|date:"c" }}">Voting ended at {{ category.voting_end_time|date:"Y-m-d H:i:s" }}</h3>
+                <div class="ended-card">
+                    <h3>Voting for {{ category.category_name|upper }} category ended at {{ category.voting_end_time|date:"m/d/Y, h:i:s A" }}</h3>
+                </div>
             {% else %}
                 <h3 class="timer btn btn-info text-white" data-end-time="{{ category.voting_end_time|date:"c" }}" data-id="{{ category.id }}">Time left: <span id="remaining-time-{{ category.id }}"></span></h3>
 
@@ -72,7 +122,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="category" value="{{ category.id }}">
                     <h2 class="text-center catfont">CATEGORY: {{ category.category_name }} ELECTION</h2>
-                    <div class="row justify-content-center">
+                    <div class="row">
                         {% for candidate in category.candidates_with_votes %}
                         <div class="col-md-4 mb-4 d-flex align-items-stretch">
                             <div class="card">
@@ -125,7 +175,7 @@
                 remainingTime = Math.floor((startTime - now) / 1000);
                 element.textContent = `Voting starts at ${startTime.toLocaleString()}`;
             } else if (endTime && now > endTime) {
-                element.textContent = `Voting ended at ${endTime.toLocaleString()}`;
+                element.textContent = `Voting for ${element.getAttribute('data-category-name')} category ended at ${endTime.toLocaleString()}`;
             } else if (endTime) {
                 remainingTime = Math.floor((endTime - now) / 1000);
                 document.getElementById('remaining-time-' + element.getAttribute('data-id')).textContent = formatRemainingTime(remainingTime);

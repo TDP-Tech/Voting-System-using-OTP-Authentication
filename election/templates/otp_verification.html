@@ -1,4 +1,3 @@
-<!-- otp_verification.html -->
 {% extends 'base.html' %}
 {% block title %}OTP Verification{% endblock %}
 {% block content %}
@@ -8,6 +7,13 @@
             <div class="card">
                 <div class="card-body">
                     <h2 class="card-title text-center">Enter OTP Code</h2>
+                    {% if messages %}
+                        <div class="alert alert-danger" role="alert">
+                            {% for message in messages %}
+                                {{ message }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                     <form method="post">
                         {% csrf_token %}
                         <div class="form-group">
@@ -19,6 +25,5 @@
             </div>
         </div>
     </div>
-    <p><a href="{% url 'logout' %}">Logout</a></p>
 </div>
 {% endblock %}
